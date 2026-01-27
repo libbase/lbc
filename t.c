@@ -148,6 +148,7 @@ opc convert_asm(string q, ptr p)
             //     .needs_ptr = 0,
             //     .bytes = 3
             // };
+            // return (opc){0};
         }
         
         // Pushing a number to register (Must detect max number for imm32 or imm64)
@@ -195,6 +196,16 @@ opc convert_asm(string q, ptr p)
         };
     }
 
+    // int 0x80
+    if(str_cmp(q, "int 0x80"))
+    {
+        OpCodes[OpCodeCount++] = (opc){
+            invoke_0x80(),
+            0,
+            2
+        };
+    }
+
     return (opc){0};
 }
 
@@ -211,20 +222,20 @@ i8 entry(int argc, string argv[])
     //     .bytes = 4,
     //     .needs_ptr = 5
     // };
-    OpCodes[OpCodeCount++] = (opc){
-        .code = to_heap((u8 []){0x01, 0x02, 0x03, 0x04}, sizeof(u8 *) * 4),
-        .bytes = 4,
-        .needs_ptr = 0
-    };
-    convert_asm("xor rdi, rdi", 0);
-    convert_asm("mov rax, 1", 0);
-    convert_asm("mov rdi, 1", 0);
-    convert_asm("mov rsi, 5", 0);
-    convert_asm("mov rdx, 10", 0);
-    convert_asm("syscall", 0);
-    convert_asm("mov rax, 60", 0);
-    convert_asm("mov rdi, 0", 0);
-    convert_asm("syscall", 0);
+    // OpCodes[OpCodeCount++] = (opc){
+    //     .code = to_heap((u8 []){0x01, 0x02, 0x03, 0x04}, sizeof(u8 *) * 4),
+    //     .bytes = 4,
+    //     .needs_ptr = 0
+    // };
+    convert_asm("xor eax, eax", 0);
+    convert_asm("mov eax, 4", 0);
+    convert_asm("mov ebx, 1", 0);
+    convert_asm("mov ecx, 0x00000000", 0);
+    convert_asm("mov edx, 10", 0);
+    convert_asm("int 0x80", 0);
+    convert_asm("mov eax, 60", 0);
+    convert_asm("mov ebx, 0", 0);
+    convert_asm("int 0x80", 0);
     println("OpCodes: ");
     u8 final_executable[65535];
     int idx = 0;
@@ -243,8 +254,12 @@ i8 entry(int argc, string argv[])
 
     //O_WRONLY | O_CREAT | O_TRUNC
     fd_t file = open_file("dick.bin", 0, _O_WRONLY | _O_CREAT | _O_TRUNC);
-    file_write(file, "Hello", 5);
+    // file_write(file, "Hello", 5);
     file_write(file, final_executable, idx);
+    file_close(file);
+
+    file = open_file("buffers.bin", 0, _O_WRONLY | _O_CREAT | _O_TRUNC);
+    file_write(file, "Hello", 5);
     file_close(file);
     return 0;
 }
