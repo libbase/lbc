@@ -168,9 +168,18 @@ opc convert_asm(string q, ptr p)
             mov reg = reg_to_type(args[1]);
             string value = args[2]; // This needs to be checked for max number of i32
             OpCodes[OpCodeCount++] = (opc){
-                .code = to_heap(mov_imm32_reg(reg, "0x10"), sizeof(u8 *) * 5),
+                .code = to_heap(
+                    (u8 []){
+                        0x48,
+                        reg_to_type(args[1]),
+                        0x69, 0x69, 0x69, 0x69,
+                        0x00, 0x00, 0x00, 0x00
+                    },
+                    10
+                ),
+                // .code = c0de,
                 .needs_ptr = 0,
-                .bytes = 5
+                .bytes = 10
             };
             return (opc){0};
         }
@@ -183,8 +192,10 @@ opc convert_asm(string q, ptr p)
             byte_to_hex(reg, buff);
             _printf("Register: %s | ", buff);
             u64 value = str_to_int(args[2]); // This needs to be checked for max number of i32
-            _printf("Num: %d\n", (void *)&value);
-            u8 *c0de = ARCH_MODE == x86 ? c0de = mov_imm32_reg(reg, value) : mov_imm64_reg(reg, value);
+            _printf("Num: %d \n", (void *)&value);
+            // u8 *c0de = ARCH_MODE == x86 ? c0de = mov_imm32_reg(reg, value) : mov_imm64_reg(reg, value);
+            
+            u8 *c0de = mov_imm32_reg(reg, value);
             // if((i64)value >= -0x80000000LL && (i64)value <= 0x7FFFFFFFLL) 
 
             opc c = (opc){
@@ -256,17 +267,22 @@ i8 entry(int argc, string argv[])
         .needs_ptr = 0
     };
 
-    convert_asm("xor eax, eax", 0);
-    convert_asm("mov eax, 4", 0);
+    convert_asm("xor rax, rax", 0);
+    convert_asm("mov eax, 1", 0);
     convert_asm("mov ebx, 1", 0);
-    convert_asm("mov ecx, 0x00000000", 0);
+    convert_asm("mov rsi, 0x00000000", 0);
     convert_asm("mov edx, 10", 0);
-    convert_asm("int 0x80", 0);
+    convert_asm("syscall", 0);
     convert_asm("mov eax, 60", 0);
     convert_asm("mov ebx, 0", 0);
-    convert_asm("int 0x80", 0);
+    convert_asm("syscall", 0);
     OpCodes[OpCodeCount++] = (opc){
-        .code = to_heap((u8 []){0xFF, 0x00, 0xFF}, sizeof(u8 *) * 3),
+        .code = to_heap((u8 []){0xC3}, 1),
+        .bytes = 1,
+        .needs_ptr = 0
+    };
+    OpCodes[OpCodeCount++] = (opc){
+        .code = to_heap((u8 []){0xFF, 0x00, 0xFF}, 3),
         .bytes = 3,
         .needs_ptr = 0
     };
@@ -300,10 +316,6 @@ i8 entry(int argc, string argv[])
     file_write(file, &hello_len, sizeof(u8));
     file_write(file, &BLACKSPACE, sizeof(u8));
     file_write(file, "Hello", 5);
-    file_write(file, &NULL_TERMINATOR, sizeof(u8));
-    file_write(file, &test_len, sizeof(u8));
-    file_write(file, &BLACKSPACE, sizeof(u8));
-    file_write(file, "TEST", 4);
     file_write(file, &NULL_TERMINATOR, sizeof(u8));
     file_close(file);
     return 0;
