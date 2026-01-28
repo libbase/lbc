@@ -155,42 +155,8 @@ int entry(int argc, string argv[])
     uintptr_t page_start = (uintptr_t)b->OPCODE & ~(_HEAP_PAGE_ - 1);
 
     _printf("Buffer Start: %d\n", (void *)&b->BUFFER_SEG);
-    // b->OFFSETS = allocate(0, sizeof(int *));
-    // int idx = 0;
-    // for(int i = 0; b->STRINGS[i] != NULL; i++) {
-    //     b->OFFSETS[idx++] = b->CODE_COUNT;
-    //     b->OFFSETS = reallocate(b->OFFSETS, sizeof(int *) * (idx + 1));
-    //     for(int c = 0; b->STRINGS[i][c] != '\0'; c++)
-    //         b->OPCODE[b->CODE_COUNT++] = b->STRINGS[i][c];
-    // }
-
     println("CODE SEGMENT");
     char byte[3];
-    // for(int i = 0, nl = 0, strs = 0; i < b->CODE_COUNT; i++)
-    // {
-    //     if(i == nl + 5) {
-    //         println(NULL);
-    //         nl += 5;
-    //     }
-
-    //     if(i <= b->CODE_COUNT - sizeof(uintptr_t) - 1 && b->OPCODE[i] == 0x69 && b->OPCODE[i+1] == 0x69 && b->OPCODE[i+2] == 0x69 && b->OPCODE[i+3] == 0x69)
-    //     {
-    //         uintptr_t addr = (uintptr_t)b->STRINGS[strs++];
-    //         _printf("String: %s\n", b->STRINGS[strs - 1]);
-    //         for(size_t j = 0; j < sizeof(uintptr_t); j++)
-    //             b->OPCODE[i + j] = (addr >> (j * 8)) & 0xFF;
-
-    //         _printf("Replacing pointer: %p\n", (void*)addr);
-
-    //         // i += 3; // skip over the 4-byte placeholder
-    //         // continue;
-    //         i += sizeof(uintptr_t) - 1;
-    //         continue;
-    //     }
-
-    //     byte_to_hex(b->OPCODE[i], byte);
-    //     _printf(i == nl - 5 ? "%s" : "%s, ", byte)
-    // }
     for(int i = 0, nl = 0, strs = 0; i < b->CODE_COUNT; i++)
     {
         if(i == nl + 5) {
