@@ -1,5 +1,9 @@
 #include <libbase.h>
 
+const u8 NULL_TERMINATOR = '\0';
+const u8 NULL_END = 0x00;
+const u8 BLACKSPACE = 0xFF;
+
 typedef enum
 {
     null_arch   = 0,
@@ -79,6 +83,26 @@ u8 *invoke_0x80() {
     return to_heap((u8 []){ 0xCD, 0x80 }, sizeof(u8) * 2);
 }
 
+// int hexstr_to_u8_strict(const char *s, u8 *out) {
+//     if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X'))
+//         s += 2;
+
+//     unsigned int value = 0;
+//     int v;
+
+//     while (*s) {
+//         v = hexval(*s++);
+//         if (v < 0)
+//             return -1;
+//         value = (value << 4) | v;
+//         if (value > 0xFF)
+//             return -1;
+//     }
+
+//     *out = (u8)value;
+//     return 0;
+// }
+
 typedef struct 
 {
     u8              *code;     // raw bytes
@@ -143,12 +167,12 @@ opc convert_asm(string q, ptr p)
         {
             mov reg = reg_to_type(args[1]);
             string value = args[2]; // This needs to be checked for max number of i32
-            // OpCodes[OpCodeCount++] = (opc){
-            //     .code = N <= 0x7FFFFFFF ? mov_imm32_reg(reg, value) : mov_imm64_reg(reg, value),
-            //     .needs_ptr = 0,
-            //     .bytes = 3
-            // };
-            // return (opc){0};
+            OpCodes[OpCodeCount++] = (opc){
+                .code = to_heap(mov_imm32_reg(reg, "0x10"), sizeof(u8 *) * 5),
+                .needs_ptr = 0,
+                .bytes = 5
+            };
+            return (opc){0};
         }
         
         // Pushing a number to register (Must detect max number for imm32 or imm64)
@@ -171,19 +195,6 @@ opc convert_asm(string q, ptr p)
             OpCodes[OpCodeCount++] = c;
         }
         return (opc){0};
-    }
-
-    // lea reg, [VARIABLE]
-    if(str_startswith(q, "lea"))
-    {
-        if(argc < 3)
-            lb_panic("Invalid opcode...!");
-
-        // Variable detected ()
-        if(str_startswith(args[2], "[") && str_endswith(args[2], "]"))
-        {
-            
-        }
     }
 
     // syscall
@@ -209,6 +220,14 @@ opc convert_asm(string q, ptr p)
     return (opc){0};
 }
 
+// HEADERS:
+//      file[0] == 'L' && file[1] == 'B'
+//      u8 *file_type = file + 2; DYM || EXE
+//      file + 5 == 0x32 || file + 5 == 0x64
+// CODE SEGMENT:
+//      ---------
+// BUFFER:
+//      SZ:CONST (in binary for load-up)
 i8 entry(int argc, string argv[])
 {
     if(argc > 1 && array_contains_str((array)argv, "--64"))
@@ -216,17 +235,27 @@ i8 entry(int argc, string argv[])
     else
         ARCH_MODE = x86;
 
-    int n = 4;
-    // OpCodes[OpCodeCount++] = (opc){
-    //     .code = to_heap((u8 []){'H', 'E', 'L', 'L', 'O'}, sizeof(u8 *) * 4),
-    //     .bytes = 4,
-    //     .needs_ptr = 5
-    // };
-    // OpCodes[OpCodeCount++] = (opc){
-    //     .code = to_heap((u8 []){0x01, 0x02, 0x03, 0x04}, sizeof(u8 *) * 4),
-    //     .bytes = 4,
-    //     .needs_ptr = 0
-    // };
+    // Custom Indication
+    OpCodes[OpCodeCount++] = (opc){
+        .code = to_heap((u8 []){'L', 'B'}, sizeof(u8 *) * 2),
+        .bytes = 2,
+        .needs_ptr = 0
+    };
+
+    // Add File Type (DYM = Dynamic || EXE = Execute)
+    OpCodes[OpCodeCount++] = (opc){
+        .code = to_heap((u8 []){'E', 'X', 'E'}, sizeof(u8 *) * 3),
+        .bytes = 3,
+        .needs_ptr = 0
+    };
+
+    // Arch ( 0x32 Bit || 0x64 Bit)
+    OpCodes[OpCodeCount++] = (opc){
+        .code = to_heap((u8 []){0x32}, sizeof(u8 *) * 1),
+        .bytes = 1,
+        .needs_ptr = 0
+    };
+
     convert_asm("xor eax, eax", 0);
     convert_asm("mov eax, 4", 0);
     convert_asm("mov ebx, 1", 0);
@@ -236,15 +265,25 @@ i8 entry(int argc, string argv[])
     convert_asm("mov eax, 60", 0);
     convert_asm("mov ebx, 0", 0);
     convert_asm("int 0x80", 0);
+    OpCodes[OpCodeCount++] = (opc){
+        .code = to_heap((u8 []){0xFF, 0x00, 0xFF}, sizeof(u8 *) * 3),
+        .bytes = 3,
+        .needs_ptr = 0
+    };
     println("OpCodes: ");
     u8 final_executable[65535];
     int idx = 0;
+    u8 count = 0;
     for(int i = 0; i < OpCodeCount; i++)
     {
-        char byte[3] = {0};
+        if(i == 3 && i == OpCodeCount - 1)
+            continue;
+
+        char byte[3];
         _printf("Bytes: %d -> ", (void *)&OpCodes[i].bytes);
         for(int c = 0; c < OpCodes[i].bytes; c++)
         {
+            if(i > 6) count++;
             final_executable[idx++] = OpCodes[i].code[c];
             byte_to_hex(OpCodes[i].code[c], byte);
             _printf(c == OpCodes[i].bytes - 1 ? "%s" : "%s, ", byte);
@@ -253,13 +292,19 @@ i8 entry(int argc, string argv[])
     }
 
     //O_WRONLY | O_CREAT | O_TRUNC
-    fd_t file = open_file("dick.bin", 0, _O_WRONLY | _O_CREAT | _O_TRUNC);
-    // file_write(file, "Hello", 5);
-    file_write(file, final_executable, idx);
-    file_close(file);
+    fd_t file = open_file("fag.bin", 0, _O_WRONLY | _O_CREAT | _O_TRUNC);
+    u8 hello_len = 5;
+    u8 test_len = 4;
 
-    file = open_file("buffers.bin", 0, _O_WRONLY | _O_CREAT | _O_TRUNC);
+    file_write(file, final_executable, idx);
+    file_write(file, &hello_len, sizeof(u8));
+    file_write(file, &BLACKSPACE, sizeof(u8));
     file_write(file, "Hello", 5);
+    file_write(file, &NULL_TERMINATOR, sizeof(u8));
+    file_write(file, &test_len, sizeof(u8));
+    file_write(file, &BLACKSPACE, sizeof(u8));
+    file_write(file, "TEST", 4);
+    file_write(file, &NULL_TERMINATOR, sizeof(u8));
     file_close(file);
     return 0;
 }
