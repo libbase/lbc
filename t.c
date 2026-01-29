@@ -268,9 +268,19 @@ i8 entry(int argc, string argv[])
     };
 
     convert_asm("xor rax, rax", 0);
+    convert_asm("mov eax, 0", 0);
+    convert_asm("mov ebx, 1", 0);
+    convert_asm("mov rsi, 0x00000001", 0);
+    convert_asm("mov edx, 10", 0);
+    convert_asm("syscall", 0);
     convert_asm("mov eax, 1", 0);
     convert_asm("mov ebx, 1", 0);
-    convert_asm("mov rsi, 0x00000000", 0);
+    convert_asm("mov rsi, 0x00000001", 0);
+    convert_asm("mov edx, 10", 0);
+    convert_asm("syscall", 0);
+    convert_asm("mov eax, 1", 0);
+    convert_asm("mov ebx, 1", 0);
+    convert_asm("mov rsi, 0x00000002", 0);
     convert_asm("mov edx, 10", 0);
     convert_asm("syscall", 0);
     convert_asm("mov eax, 60", 0);
@@ -309,13 +319,17 @@ i8 entry(int argc, string argv[])
 
     //O_WRONLY | O_CREAT | O_TRUNC
     fd_t file = open_file("fag.bin", 0, _O_WRONLY | _O_CREAT | _O_TRUNC);
-    u8 hello_len = 5;
-    u8 test_len = 4;
+    u8 hello_len = 6;
+    u8 test_len = 5;
 
     file_write(file, final_executable, idx);
     file_write(file, &hello_len, sizeof(u8));
     file_write(file, &BLACKSPACE, sizeof(u8));
-    file_write(file, "Hello", 5);
+    file_write(file, "Hello\n", hello_len);
+    file_write(file, &NULL_TERMINATOR, sizeof(u8));
+    file_write(file, &test_len, sizeof(u8));
+    file_write(file, &BLACKSPACE, sizeof(u8));
+    file_write(file, "TEST\n", test_len);
     file_write(file, &NULL_TERMINATOR, sizeof(u8));
     file_close(file);
     return 0;

@@ -32,6 +32,7 @@ typedef struct
     i32         BUFFER_SEG;
     u8          **STRINGS;
     i32         *OFFSETS;
+    map_t       memory_map;
 } binary_t;
 
 #define LB_TYPE_OFFSET 2
@@ -91,7 +92,7 @@ fn parse_file(binary_t *b)
     for(int i = 6; i < b->size; i++)
     {
         if(b->buffer[i] == 0xFF && b->buffer[i + 1] == 0x00 && b->buffer[i + 2] == 0xFF) {
-            b->BUFFER_SEGMENT = i - 6 + 3;
+            b->BUFFER_SEGMENT = i + 3;
             break;
         }
         
@@ -121,6 +122,7 @@ fn parse_buffers(binary_t *b)
             b->STRINGS = reallocate(b->STRINGS, sizeof(u8 *) * (bidx + 1));
             b->STRINGS[bidx] = NULL;
             n = 0;
+            i += 2;
             continue;
         }
 
@@ -155,6 +157,9 @@ int entry(int argc, string argv[])
     uintptr_t page_start = (uintptr_t)b->OPCODE & ~(_HEAP_PAGE_ - 1);
 
     _printf("Buffer Start: %d\n", (void *)&b->BUFFER_SEG);
+    for(int i = 0 ; i < 2; i++)
+        println(b->STRINGS[i]);
+    
     println("CODE SEGMENT");
     char byte[3];
     for(int i = 0, nl = 0, strs = 0; i < b->CODE_COUNT; i++)
@@ -164,22 +169,18 @@ int entry(int argc, string argv[])
             nl += 5;
         }
 
-        // Check that we have the MOV placeholder pattern
-        if(i <= b->CODE_COUNT - 8 && 
-        b->OPCODE[i] == 0x69 && b->OPCODE[i+1] == 0x69 &&
-        b->OPCODE[i+2] == 0x69 && b->OPCODE[i+3] == 0x69)
+        if(i <= b->CODE_COUNT - 8 && b->OPCODE[i] == 0x69 && b->OPCODE[i+1] == 0x69 && b->OPCODE[i+2] == 0x69 && b->OPCODE[i+3] == 0x69)
         {
             uintptr_t addr = (uintptr_t)b->STRINGS[strs++];
             _printf("String: %s\n", b->STRINGS[strs - 1]);
 
-            // Patch 8-byte pointer **starting AFTER the opcode**
-            size_t placeholder_offset = i;  // adjust this to match your template layout
+            size_t placeholder_offset = i;
             for(size_t j = 0; j < sizeof(uintptr_t); j++)
                 b->OPCODE[placeholder_offset + j] = (addr >> (j * 8)) & 0xFF;
 
             _printf("Replacing pointer: %p\n", (void*)addr);
 
-            i += sizeof(uintptr_t) - 1; // skip the placeholder
+            i += sizeof(uintptr_t) - 1;
             continue;
         }
 
@@ -187,8 +188,6 @@ int entry(int argc, string argv[])
         byte_to_hex(b->OPCODE[i], byte);
         _printf(i == nl - 5 ? "%s" : "%s, ", byte);
     }
-
-
 
     __syscall__(page_start, _HEAP_PAGE_, PROT_READ | PROT_EXEC, -1, -1, -1, _SYS_MPROTECT);
     println("EXECUTING");
