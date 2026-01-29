@@ -146,7 +146,7 @@ fn parse_buffers(binary_t *b)
 
 int entry(int argc, string argv[])
 {
-    binary_t *b = init_lb(argv[1]);
+    binary_t *b = init_lb("fag.bin");
     if(b->size == 0)
         lb_panic("No bytes in file to read...!");
 

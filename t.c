@@ -268,11 +268,6 @@ i8 entry(int argc, string argv[])
     };
 
     convert_asm("xor rax, rax", 0);
-    convert_asm("mov eax, 0", 0);
-    convert_asm("mov ebx, 1", 0);
-    convert_asm("mov rsi, 0x00000001", 0);
-    convert_asm("mov edx, 10", 0);
-    convert_asm("syscall", 0);
     convert_asm("mov eax, 1", 0);
     convert_asm("mov ebx, 1", 0);
     convert_asm("mov rsi, 0x00000001", 0);
